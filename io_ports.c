@@ -5,9 +5,10 @@
 #include <stdint.h>
 #include <util/delay.h>
 
-// Two timers:
+// Three timers:
 // 1. LED timer that sets the PWM values
-// 2. Button timer for debouncing
+// 2. LED timer that does the PWM
+// 3. Button timer for debouncing
 
 
 static volatile bool m_last_button_state = false;

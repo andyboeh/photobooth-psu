@@ -16,13 +16,14 @@ int main(void) {
     state_machine_init();
     led_set_state(LED_STATE_POWERED_OFF);
 
-    // Work around a Caterian bug (bootloader bug), that does
+    // Work around a Caterina bug (bootloader bug), that does
     // not disable the USB interrupt
     USBCON=0;
 
     sei();
 
     for(;;) {
+        // Handle button press
         if(button_pressed()) {
             eState raspiState = state_get_raspberry();
             switch(raspiState) {
@@ -50,15 +51,25 @@ int main(void) {
 
             button_handled();
         }
+
+        // Handle the "gpio-poweroff" GPIO, i.e. Raspberry
+        // reports "powered down"
         if(gpio_get_raspberry_state() == STATE_POWERED_OFF &&
                 (state_get_raspberry() == STATE_SHUTTING_DOWN ||
                  state_get_raspberry() == STATE_RUNNING)) {
             camera_power_off();
-            //light_power_off();
+            printer_power_off();
+            // The user has initiated the shutdown from the menu
+            // we need to take care of a bit more
+            if(state_get_raspberry() == STATE_RUNNING) {
+                light_power_off();
+            }
             system_power_off();
             state_set_raspberry(STATE_POWERED_OFF);
             led_set_state(LED_STATE_POWERED_OFF);
         }
+
+        // Handle the userspace Raspberry GPIO "boot complete"
         if(gpio_get_raspberry_state() == STATE_RUNNING &&
                 state_get_raspberry() == STATE_BOOTING) {
             if(m_shutdown_after_boot) {
