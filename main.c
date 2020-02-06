@@ -50,14 +50,17 @@ int main(void) {
 
             button_handled();
         }
-        if(gpio_get_raspberry_state() == STATE_POWERED_OFF && state_get_raspberry() == STATE_SHUTTING_DOWN) {
+        if(gpio_get_raspberry_state() == STATE_POWERED_OFF &&
+                (state_get_raspberry() == STATE_SHUTTING_DOWN ||
+                 state_get_raspberry() == STATE_RUNNING)) {
             camera_power_off();
             //light_power_off();
             system_power_off();
             state_set_raspberry(STATE_POWERED_OFF);
             led_set_state(LED_STATE_POWERED_OFF);
         }
-        if(gpio_get_raspberry_state() == STATE_RUNNING && state_get_raspberry() == STATE_BOOTING) {
+        if(gpio_get_raspberry_state() == STATE_RUNNING &&
+                state_get_raspberry() == STATE_BOOTING) {
             if(m_shutdown_after_boot) {
                 raspberry_power_off();
                 m_shutdown_after_boot = false;

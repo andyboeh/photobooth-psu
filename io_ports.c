@@ -29,7 +29,9 @@ void io_ports_init(void) {
     SET_INPUT(PIN_PWR_BTN);
     SET_INPUT(PIN_RASPBERRY_STATE);
     SET_INPUT(PIN_RASPBERRY_BOOT_COMPLETE);
-    SET_OUTPUT(PIN_RASPBERRY_SHUTDOWN);
+    // Hack: Set the pin to hi-z
+    //SET_OUTPUT(PIN_RASPBERRY_SHUTDOWN);
+    SET_INPUT(PIN_RASPBERRY_SHUTDOWN);
     SET(PIN_RASPBERRY_SHUTDOWN);
     RESET(PIN_PSON);
     SET(PIN_RELAIS1);
@@ -187,7 +189,11 @@ void system_power_off(void) {
 }
 
 void raspberry_power_off_gpio(void) {
+    // Hack: go from hi-z to low to hi-z
+    // without going to high
     RESET(PIN_RASPBERRY_SHUTDOWN);
-    _delay_ms(100);
+    SET_OUTPUT(PIN_RASPBERRY_SHUTDOWN);
+    _delay_ms(300);
+    SET_INPUT(PIN_RASPBERRY_SHUTDOWN);
     SET(PIN_RASPBERRY_SHUTDOWN);
 }
