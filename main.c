@@ -23,37 +23,51 @@ int main(void) {
     sei();
 
     for(;;) {
-        if(button_power_is_pressed()) {
-            if(state_get_raspberry() == STATE_POWERED_OFF) {
+        if(button_pressed()) {
+            eState raspiState = state_get_raspberry();
+            switch(raspiState) {
+            case STATE_POWERED_OFF:
                 raspberry_power_on();
                 camera_power_on();
                 light_power_on();
-                led_set_state(LED_STATE_BOOTING);
-            }
-            if(state_get_printer() == STATE_POWERED_OFF) {
                 printer_power_on();
-            }
-        } else {
-            if(state_get_raspberry() == STATE_RUNNING) {
-                raspberry_power_off();
-                camera_power_off();
-                light_power_off();
-                led_set_state(LED_STATE_SHUTTING_DOWN);
-            } else if(state_get_raspberry() == STATE_BOOTING) {
+                led_set_state(LED_STATE_BOOTING);
+                break;
+            case STATE_BOOTING:
                 m_shutdown_after_boot = true;
                 led_set_state(LED_STATE_SHUTTING_DOWN);
+                break;
+            case STATE_RUNNING:
+                raspberry_power_off();
+                //camera_power_off();
+                light_power_off();
+                //printer_power_off();
+                led_set_state(LED_STATE_SHUTTING_DOWN);
+                break;
+            case STATE_SHUTTING_DOWN:
+                break;
             }
-            if(state_get_printer() != STATE_POWERED_OFF) {
-                printer_power_off();
-            }
+
+            button_handled();
         }
         if(gpio_get_raspberry_state() == STATE_POWERED_OFF && state_get_raspberry() == STATE_SHUTTING_DOWN) {
             camera_power_off();
-            light_power_off();
+            //light_power_off();
             system_power_off();
             state_set_raspberry(STATE_POWERED_OFF);
             led_set_state(LED_STATE_POWERED_OFF);
         }
+        if(gpio_get_raspberry_state() == STATE_RUNNING && state_get_raspberry() == STATE_BOOTING) {
+            if(m_shutdown_after_boot) {
+                raspberry_power_off();
+                m_shutdown_after_boot = false;
+            } else {
+                state_set_raspberry(STATE_RUNNING);
+                led_set_state(LED_STATE_RUNNING);
+            }
+        }
+
+        /*
         cmd = uart_handle_command();
         switch(cmd) {
         case COMMAND_BOOTUP_COMPLETE:
@@ -76,6 +90,7 @@ int main(void) {
         case COMMAND_NO_COMMAND:
             break;
         }
+        */
     }
 
     return 0;

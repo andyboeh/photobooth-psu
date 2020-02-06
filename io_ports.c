@@ -3,6 +3,7 @@
 #include "photobooth-psu.h"
 #include <avr/interrupt.h>
 #include <stdint.h>
+#include <util/delay.h>
 
 // Two timers:
 // 1. LED timer that sets the PWM values
@@ -11,7 +12,7 @@
 
 static volatile bool m_last_button_state = false;
 static volatile bool m_next_button_state = false;
-static volatile bool m_button_state = false;
+static volatile bool m_button_pressed = false;
 static volatile eLedMode m_led_mode = LED_MODE_OFF;
 static volatile bool m_led_counting_up = true;
 static volatile uint8_t m_led_blink_count = 0;
@@ -27,6 +28,9 @@ void io_ports_init(void) {
     SET_OUTPUT(PIN_RELAIS4);
     SET_INPUT(PIN_PWR_BTN);
     SET_INPUT(PIN_RASPBERRY_STATE);
+    SET_INPUT(PIN_RASPBERRY_BOOT_COMPLETE);
+    SET_OUTPUT(PIN_RASPBERRY_SHUTDOWN);
+    SET(PIN_RASPBERRY_SHUTDOWN);
     RESET(PIN_PSON);
     SET(PIN_RELAIS1);
     SET(PIN_RELAIS2);
@@ -65,12 +69,7 @@ void io_ports_init(void) {
     // Set counter value
     TCNT3 = m_debounce_val; // 100ms
 
-    // Initialize button state
-    if(IS_SET(PIN_PWR_BTN)) {
-        m_button_state = false;
-    } else {
-        m_button_state = true;
-    }
+    m_button_pressed = false;
 }
 
 static void debounce_start(void) {
@@ -80,10 +79,11 @@ static void debounce_start(void) {
 
 ISR(TIMER3_OVF_vect) {
     TIMSK3 &= ~(1 << 0); // Disable timer interrupt
+    // We fake a rising edge interrupt by looking whether the
+    // button is still pressed after the timer has expired. If not,
+    // it was either too short or a falling edge.
     if(IS_SET(PIN_PWR_BTN)) {
-        m_button_state = false;
-    } else {
-        m_button_state = true;
+        m_button_pressed = true;
     }
 }
 
@@ -134,11 +134,19 @@ ISR(TIMER0_COMPA_vect) {
 
 
 ISR(PCINT0_vect) {
-    debounce_start();
+    // We start debouncing only if
+    // the button state is pressed
+    if(IS_SET(PIN_PWR_BTN)) {
+        debounce_start();
+    }
 }
 
-bool button_power_is_pressed(void) {
-    return m_button_state;
+void button_handled(void) {
+    m_button_pressed = false;
+}
+
+bool button_pressed(void) {
+    return m_button_pressed;
 }
 
 void led_set_state(eLedState state) {
@@ -162,7 +170,11 @@ eState gpio_get_raspberry_state(void) {
     if(IS_SET(PIN_RASPBERRY_STATE)) {
         return STATE_POWERED_OFF;
     } else {
-        return STATE_RUNNING;
+        if(IS_SET(PIN_RASPBERRY_BOOT_COMPLETE)) {
+            return STATE_RUNNING;
+        } else {
+            return STATE_BOOTING;
+        }
     }
 }
 
@@ -172,4 +184,10 @@ void system_power_on(void) {
 
 void system_power_off(void) {
     RESET(PIN_PSON);
+}
+
+void raspberry_power_off_gpio(void) {
+    RESET(PIN_RASPBERRY_SHUTDOWN);
+    _delay_ms(100);
+    SET(PIN_RASPBERRY_SHUTDOWN);
 }

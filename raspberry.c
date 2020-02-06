@@ -9,5 +9,7 @@ void raspberry_power_on(void) {
 }
 
 void raspberry_power_off(void) {
-    uart_send_command(COMMAND_SHUTDOWN);
+    //uart_send_command(COMMAND_SHUTDOWN);
+    raspberry_power_off_gpio();
+    state_set_raspberry(STATE_SHUTTING_DOWN);
 }
