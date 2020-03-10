@@ -40,7 +40,7 @@ void io_ports_init(void) {
     SET(PIN_RELAIS3);
     SET(PIN_RELAIS4);
     RESET(PIN_PWR_LED);
-    SET(PIN_PWR_BTN);
+    SET(PIN_PWR_BTN); // Internal Pull-Up
     SET(PIN_RASPBERRY_STATE);
 
     // Enable Pin Change Interrupt (Power Button)
@@ -85,7 +85,7 @@ ISR(TIMER3_OVF_vect) {
     // We fake a rising edge interrupt by looking whether the
     // button is still pressed after the timer has expired. If not,
     // it was either too short or a falling edge.
-    if(IS_SET(PIN_PWR_BTN)) {
+    if(!IS_SET(PIN_PWR_BTN)) {
         m_button_pressed = true;
     }
 }
@@ -139,7 +139,7 @@ ISR(TIMER0_COMPA_vect) {
 ISR(PCINT0_vect) {
     // We start debouncing only if
     // the button state is pressed
-    if(IS_SET(PIN_PWR_BTN)) {
+    if(!IS_SET(PIN_PWR_BTN)) {
         debounce_start();
     }
 }
