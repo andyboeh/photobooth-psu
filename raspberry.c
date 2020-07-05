@@ -13,3 +13,8 @@ void raspberry_power_off(void) {
     raspberry_power_off_gpio();
     state_set_raspberry(STATE_SHUTTING_DOWN);
 }
+
+void raspberry_trigger()
+{
+    raspberry_trigger_gpio();
+}

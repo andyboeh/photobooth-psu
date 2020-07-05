@@ -14,11 +14,18 @@
 static volatile bool m_last_button_state = false;
 static volatile bool m_next_button_state = false;
 static volatile bool m_button_pressed = false;
+static volatile bool m_button_long_pressed = false;
+static volatile bool m_button_middle_pressed = false;
 static volatile eLedMode m_led_mode = LED_MODE_OFF;
 static volatile bool m_led_counting_up = true;
 static volatile uint8_t m_led_blink_count = 0;
 static const uint8_t m_led_inc = 2;
-static const uint16_t m_debounce_val = (65535 - 18750); // 300ms
+static const uint16_t m_debounce_val = (65535 - 625); // 10ms
+//static const uint16_t m_debounce_val = (65535 - 18750); // 300ms
+static const uint8_t m_short_press_count = 20; //200ms
+static const uint16_t m_middle_press_count = 250; //2.5 seconds
+static const uint16_t m_long_press_count = 500; // 5 seconds
+static volatile uint16_t m_button_press_count = 0;
 
 void io_ports_init(void) {
     SET_OUTPUT(PIN_PSON);
@@ -34,6 +41,8 @@ void io_ports_init(void) {
     //SET_OUTPUT(PIN_RASPBERRY_SHUTDOWN);
     SET_INPUT(PIN_RASPBERRY_SHUTDOWN);
     SET(PIN_RASPBERRY_SHUTDOWN);
+    SET_INPUT(PIN_RASPBERRY_TRIGGER);
+    SET(PIN_RASPBERRY_TRIGGER);
     RESET(PIN_PSON);
     SET(PIN_RELAIS1);
     SET(PIN_RELAIS2);
@@ -70,14 +79,30 @@ void io_ports_init(void) {
     // Prescaler 256
     TCCR3B |= (1 << 2); // CS32
     // Set counter value
-    TCNT3 = m_debounce_val; // 100ms
+    TCNT3 = m_debounce_val;
 
     m_button_pressed = false;
+    m_button_middle_pressed = false;
+    m_button_long_pressed = false;
+    m_button_press_count = 0;
 }
 
 static void debounce_start(void) {
     TCNT3 = m_debounce_val;
     TIMSK3 |= (1 << 0); // Enable timer interrupt
+}
+
+static void debounce_stop(void) {
+    TCNT3 = m_debounce_val;
+    TIMSK3 &= ~(1 << 0); // Disable timer interrupt
+    if(m_button_press_count > m_long_press_count) {
+        m_button_long_pressed = true;
+    } else if(m_button_press_count > m_middle_press_count) {
+        m_button_middle_pressed = true;
+    } else if(m_button_press_count > m_short_press_count) {
+        m_button_pressed = true;
+    }
+    m_button_press_count = 0;
 }
 
 ISR(TIMER3_OVF_vect) {
@@ -86,7 +111,8 @@ ISR(TIMER3_OVF_vect) {
     // button is still pressed after the timer has expired. If not,
     // it was either too short or a falling edge.
     if(!IS_SET(PIN_PWR_BTN)) {
-        m_button_pressed = true;
+        m_button_press_count++;
+        debounce_start();
     }
 }
 
@@ -141,7 +167,17 @@ ISR(PCINT0_vect) {
     // the button state is pressed
     if(!IS_SET(PIN_PWR_BTN)) {
         debounce_start();
+    } else {
+        debounce_stop();
     }
+}
+
+void button_middle_handled(void) {
+    m_button_middle_pressed = false;
+}
+
+void button_long_handled(void) {
+    m_button_long_pressed = false;
 }
 
 void button_handled(void) {
@@ -150,6 +186,14 @@ void button_handled(void) {
 
 bool button_pressed(void) {
     return m_button_pressed;
+}
+
+bool button_middle_pressed(void) {
+    return m_button_middle_pressed;
+}
+
+bool button_long_pressed(void) {
+    return m_button_long_pressed;
 }
 
 void led_set_state(eLedState state) {
@@ -197,4 +241,15 @@ void raspberry_power_off_gpio(void) {
     _delay_ms(300);
     SET_INPUT(PIN_RASPBERRY_SHUTDOWN);
     SET(PIN_RASPBERRY_SHUTDOWN);
+}
+
+void raspberry_trigger_gpio()
+{
+    // Hack: go from hi-z to low to hi-z
+    // without going to high
+    RESET(PIN_RASPBERRY_TRIGGER);
+    SET_OUTPUT(PIN_RASPBERRY_TRIGGER);
+    _delay_ms(300);
+    SET_INPUT(PIN_RASPBERRY_TRIGGER);
+    SET(PIN_RASPBERRY_TRIGGER);
 }

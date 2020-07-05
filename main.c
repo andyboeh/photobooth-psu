@@ -10,7 +10,7 @@
 static bool m_shutdown_after_boot = false;
 
 int main(void) {
-    eUartCommand cmd;
+    //eUartCommand cmd;
     io_ports_init();
     uart_init();
     state_machine_init();
@@ -35,6 +35,24 @@ int main(void) {
                 led_set_state(LED_STATE_BOOTING);
                 break;
             case STATE_BOOTING:
+
+                break;
+            case STATE_RUNNING:
+                raspberry_trigger();
+                break;
+            case STATE_SHUTTING_DOWN:
+                break;
+            }
+
+            button_handled();
+        }
+
+        if(button_middle_pressed()) {
+            eState raspiState = state_get_raspberry();
+            switch(raspiState) {
+            case STATE_POWERED_OFF:
+                break;
+            case STATE_BOOTING:
                 m_shutdown_after_boot = true;
                 led_set_state(LED_STATE_SHUTTING_DOWN);
                 break;
@@ -48,8 +66,17 @@ int main(void) {
             case STATE_SHUTTING_DOWN:
                 break;
             }
+            button_middle_handled();
+        }
 
-            button_handled();
+        if(button_long_pressed()) {
+            camera_power_off();
+            printer_power_off();
+            light_power_off();
+            system_power_off();
+            state_set_raspberry(STATE_POWERED_OFF);
+            led_set_state(LED_STATE_POWERED_OFF);
+            button_long_handled();
         }
 
         // Handle the "gpio-poweroff" GPIO, i.e. Raspberry
